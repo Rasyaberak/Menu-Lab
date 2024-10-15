@@ -647,42 +647,102 @@ function OrionLib:MakeWindow(WindowConfig)
 
 	MakeDraggable(DragPoint, MainWindow)
 
-	AddConnection(CloseBtn.MouseButton1Up, function()
-		MainWindow.Visible = false
-		UIHidden = true
-		OrionLib:MakeNotification({
-			Name = "Interface Hidden",
-			Content = "Tap RightShift to reopen the interface",
-			Time = 5
-		})
-		WindowConfig.CloseCallback()
-	end)
+	-- Services
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
-	AddConnection(UserInputService.InputBegan, function(Input)
-		if Input.KeyCode == Enum.KeyCode.RightShift and UIHidden then
-			MainWindow.Visible = true
+-- Variables
+local UIHidden = false
+local Minimized = false
+local dragging = false
+local dragStart
+local startPos
+
+-- Create GUI
+local ScreenGui = Instance.new("ScreenGui")
+local MainWindow = Instance.new("Frame")
+local CloseBtn = Instance.new("TextButton")
+local MinimizeBtn = Instance.new("TextButton")
+
+-- Configure the GUI components
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+MainWindow.Parent = ScreenGui
+MainWindow.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MainWindow.BorderSizePixel = 0
+MainWindow.Size = UDim2.new(0, 300, 0, 300)  -- Square frame
+MainWindow.Position = UDim2.new(0.5, -150, 0.5, -150)  -- Centered
+MainWindow.Active = true
+MainWindow.Draggable = false  -- We’ll handle dragging manually
+
+CloseBtn.Parent = MainWindow
+CloseBtn.Size = UDim2.new(0, 100, 0, 50)
+CloseBtn.Position = UDim2.new(1, -110, 0, 10)
+CloseBtn.Text = "Close"
+
+MinimizeBtn.Parent = MainWindow
+MinimizeBtn.Size = UDim2.new(0, 100, 0, 50)
+MinimizeBtn.Position = UDim2.new(1, -110, 0, 70)
+MinimizeBtn.Text = "Minimize"
+
+-- Dragging functionality
+local function update(input)
+	local delta = input.Position - dragStart
+	MainWindow.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+MainWindow.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainWindow.Position
+		
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+MainWindow.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+		if dragging then
+			update(input)
 		end
-	end)
+	end
+end)
 
-	AddConnection(MinimizeBtn.MouseButton1Up, function()
-		if Minimized then
-			TweenService:Create(MainWindow, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, 615, 0, 344)}):Play()
-			MinimizeBtn.Ico.Image = "rbxassetid://7072719338"
-			wait(.02)
-			MainWindow.ClipsDescendants = false
-			WindowStuff.Visible = true
-			WindowTopBarLine.Visible = true
-		else
-			MainWindow.ClipsDescendants = true
-			WindowTopBarLine.Visible = false
-			MinimizeBtn.Ico.Image = "rbxassetid://7072720870"
+-- Close and reopen functionality
+CloseBtn.MouseButton1Up:Connect(function()
+	MainWindow.Visible = false
+	UIHidden = true
+	OrionLib:MakeNotification({
+		Name = "Interface Hidden",
+		Content = "Tap RightShift to reopen the interface",
+		Time = 5
+	})
+end)
 
-			TweenService:Create(MainWindow, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, WindowName.TextBounds.X + 140, 0, 50)}):Play()
-			wait(0.1)
-			WindowStuff.Visible = false	
-		end
-		Minimized = not Minimized    
-	end)
+UserInputService.InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.RightShift and UIHidden then
+		MainWindow.Visible = true
+		UIHidden = false
+	end
+end)
+
+-- Minimize functionality
+MinimizeBtn.MouseButton1Up:Connect(function()
+	if Minimized then
+		TweenService:Create(MainWindow, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, 300, 0, 300)}):Play()
+		MinimizeBtn.Text = "Minimize"
+	else
+		TweenService:Create(MainWindow, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, 150, 0, 50)}):Play()
+		MinimizeBtn.Text = "Maximize"
+	end
+	Minimized = not Minimized
+end)
 
 	local function LoadSequence()
 		MainWindow.Visible = false
